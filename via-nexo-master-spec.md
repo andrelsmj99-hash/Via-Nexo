@@ -360,13 +360,14 @@ A lógica que deve ser seguida pela implementação.
 Onde cada novo arquivo deve ser criado ou qual arquivo existente será modificado.
 
 ```text
-/specs
-  via-nexo-master-spec.md
-  mvp-via-nexo-fase-1-banco.md
-  mvp-via-nexo-fase-2-api.md
-  mvp-via-nexo-fase-3-mapa-publico.md
-  mvp-via-nexo-fase-4-envio-ocorrencias.md
-  mvp-via-nexo-fase-5-moderacao.md
+README.md
+via-nexo-visao-geral.md
+via-nexo-master-spec.md
+via-nexo-fase-1-banco.md
+via-nexo-fase-2-api.md
+via-nexo-fase-3-mapa-publico.md
+via-nexo-fase-4-envio-ocorrencias.md
+via-nexo-fase-5-moderacao.md
 
 /app
   /page.tsx
