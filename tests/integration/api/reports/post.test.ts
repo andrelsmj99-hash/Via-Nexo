@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import "@/tests/mocks/supabase";
-import { mockSingle, mockState } from "@/tests/mocks/supabase";
+import "@/tests/mocks/db";
+import { mockConfig, mockDb } from "@/tests/mocks/db";
 import { buildReportInsert, buildReport } from "@/tests/factories/report.factory";
 import { POST } from "@/app/api/reports/route";
 
@@ -14,8 +14,8 @@ function makeRequest(body: unknown): Request {
 
 describe("POST /api/reports", () => {
   beforeEach(() => {
-    mockState.single = { data: buildReport(), error: null };
-    mockSingle.mockImplementation(() => Promise.resolve(mockState.single));
+    mockConfig.rows = [buildReport()];
+    mockConfig.shouldThrow = false;
   });
 
   // --- Grupo 1: Validação de payload ---
@@ -96,7 +96,7 @@ describe("POST /api/reports", () => {
 
   it("T010 — define is_anonymous como false quando não informado", async () => {
     const { is_anonymous: _, ...rest } = buildReportInsert();
-    mockState.single = { data: buildReport({ is_anonymous: false }), error: null };
+    mockConfig.rows = [buildReport({ is_anonymous: false })];
     const res = await POST(makeRequest(rest));
     expect(res.status).toBe(201);
     const json = await res.json();
@@ -121,7 +121,7 @@ describe("POST /api/reports", () => {
   });
 
   it("T013 — aceita relatório anônimo (is_anonymous = true)", async () => {
-    mockState.single = { data: buildReport({ is_anonymous: true, user_id: null }), error: null };
+    mockConfig.rows = [buildReport({ is_anonymous: true, user_id: null })];
     const res = await POST(makeRequest(buildReportInsert({ is_anonymous: true })));
     expect(res.status).toBe(201);
     const json = await res.json();
@@ -140,8 +140,8 @@ describe("POST /api/reports", () => {
 
   // --- Grupo 4: Erros de infraestrutura ---
 
-  it("T015 — retorna 500 quando Supabase insert falha", async () => {
-    mockState.single = { data: null, error: { message: "Database error", code: "PGRST001" } };
+  it("T015 — retorna 500 quando o banco falha no insert", async () => {
+    mockConfig.shouldThrow = true;
     const res = await POST(makeRequest(buildReportInsert()));
     expect(res.status).toBe(500);
     const json = await res.json();

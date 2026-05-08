@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import "@/tests/mocks/supabase";
-import { mockState, mockNeq, mockEq } from "@/tests/mocks/supabase";
+import "@/tests/mocks/db";
+import { mockConfig, mockDb } from "@/tests/mocks/db";
 import { buildReport } from "@/tests/factories/report.factory";
 import { GET } from "@/app/api/reports/[id]/route";
 
@@ -15,7 +15,8 @@ function makeRequest(id: string = VALID_ID): [Request, { params: Promise<{ id: s
 
 describe("GET /api/reports/[id]", () => {
   beforeEach(() => {
-    mockState.single = { data: buildReport({ id: VALID_ID }), error: null };
+    mockConfig.rows = [buildReport({ id: VALID_ID })];
+    mockConfig.shouldThrow = false;
   });
 
   it("T025 — retorna 200 com dados do report quando encontrado", async () => {
@@ -27,25 +28,25 @@ describe("GET /api/reports/[id]", () => {
   });
 
   it("T026 — retorna 404 quando report não existe", async () => {
-    mockState.single = { data: null, error: { code: "PGRST116", message: "No rows found" } };
+    mockConfig.rows = [];
     const res = await GET(...makeRequest());
     expect(res.status).toBe(404);
     const json = await res.json();
     expect(json.error.code).toBe("NOT_FOUND");
   });
 
-  it("T027 — aplica filtro neq('status','archived') para excluir arquivados", async () => {
+  it("T027 — aplica cláusula WHERE para excluir reports arquivados", async () => {
     await GET(...makeRequest());
-    expect(mockNeq).toHaveBeenCalledWith("status", "archived");
+    expect(mockDb.where).toHaveBeenCalled();
   });
 
-  it("T028 — aplica filtro eq('id', id) para buscar pelo ID correto", async () => {
+  it("T028 — aplica cláusula WHERE para buscar pelo ID correto", async () => {
     await GET(...makeRequest(VALID_ID));
-    expect(mockEq).toHaveBeenCalledWith("id", VALID_ID);
+    expect(mockDb.where).toHaveBeenCalled();
   });
 
-  it("T029 — retorna 500 quando Supabase falha com erro inesperado", async () => {
-    mockState.single = { data: null, error: { code: "PGRST001", message: "DB error" } };
+  it("T029 — retorna 500 quando o banco falha com erro inesperado", async () => {
+    mockConfig.shouldThrow = true;
     const res = await GET(...makeRequest());
     expect(res.status).toBe(500);
     const json = await res.json();

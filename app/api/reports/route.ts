@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { createSupabaseAdminClient } from "@/lib/supabase";
+import { and, desc, eq, ne, SQL } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { reports } from "@/lib/db/schema";
 import { ReportInsertSchema, ReportListQuerySchema } from "@/lib/schemas/report.schema";
 import { DEFAULT_REPORT_STATUS } from "@/lib/constants";
 
@@ -42,27 +44,34 @@ export async function GET(request: Request) {
     throw err;
   }
 
-  const supabase = createSupabaseAdminClient();
-  let query = supabase
-    .from("reports")
-    .select(
-      "id, title, category, status, severity, latitude, longitude, neighborhood_id, created_at, updated_at"
-    )
-    .neq("status", "archived")
-    .order("created_at", { ascending: false });
+  try {
+    const conditions: SQL[] = [ne(reports.status, "archived")];
+    if (filters.category) conditions.push(eq(reports.category, filters.category));
+    if (filters.status) conditions.push(eq(reports.status, filters.status));
+    if (filters.severity) conditions.push(eq(reports.severity, filters.severity));
+    if (filters.neighborhood_id) conditions.push(eq(reports.neighborhood_id, filters.neighborhood_id));
 
-  if (filters.category) query = (query as any).eq("category", filters.category);
-  if (filters.status) query = (query as any).eq("status", filters.status);
-  if (filters.severity) query = (query as any).eq("severity", filters.severity);
-  if (filters.neighborhood_id) query = (query as any).eq("neighborhood_id", filters.neighborhood_id);
+    const rows = await db
+      .select({
+        id: reports.id,
+        title: reports.title,
+        category: reports.category,
+        status: reports.status,
+        severity: reports.severity,
+        latitude: reports.latitude,
+        longitude: reports.longitude,
+        neighborhood_id: reports.neighborhood_id,
+        created_at: reports.created_at,
+        updated_at: reports.updated_at,
+      })
+      .from(reports)
+      .where(and(...conditions))
+      .orderBy(desc(reports.created_at));
 
-  const { data, error } = await (query as any);
-
-  if (error) {
+    return NextResponse.json({ data: rows });
+  } catch {
     return databaseError();
   }
-
-  return NextResponse.json({ data: data ?? [] });
 }
 
 export async function POST(request: Request) {
@@ -87,16 +96,27 @@ export async function POST(request: Request) {
     throw err;
   }
 
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("reports")
-    .insert({ ...parsed, status: DEFAULT_REPORT_STATUS })
-    .select()
-    .single();
+  try {
+    const [inserted] = await db
+      .insert(reports)
+      .values({
+        title: parsed.title,
+        description: parsed.description,
+        category: parsed.category,
+        severity: parsed.severity,
+        latitude: parsed.latitude,
+        longitude: parsed.longitude,
+        address: parsed.address ?? null,
+        street_name: parsed.street_name ?? null,
+        neighborhood_id: parsed.neighborhood_id ?? null,
+        is_anonymous: parsed.is_anonymous ?? false,
+        status: DEFAULT_REPORT_STATUS,
+      })
+      .returning();
 
-  if (error || !data) {
+    if (!inserted) return databaseError();
+    return NextResponse.json({ data: inserted }, { status: 201 });
+  } catch {
     return databaseError();
   }
-
-  return NextResponse.json({ data }, { status: 201 });
 }

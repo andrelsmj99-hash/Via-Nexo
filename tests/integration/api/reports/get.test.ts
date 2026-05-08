@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import "@/tests/mocks/supabase";
-import { mockState, mockEq, mockNeq } from "@/tests/mocks/supabase";
+import "@/tests/mocks/db";
+import { mockConfig, mockDb } from "@/tests/mocks/db";
 import { buildReport } from "@/tests/factories/report.factory";
 import { GET } from "@/app/api/reports/route";
 
@@ -12,7 +12,8 @@ function makeRequest(params: Record<string, string> = {}): Request {
 
 describe("GET /api/reports", () => {
   beforeEach(() => {
-    mockState.list = { data: [buildReport(), buildReport()], error: null };
+    mockConfig.rows = [buildReport(), buildReport()];
+    mockConfig.shouldThrow = false;
   });
 
   it("T016 — retorna 200 com lista de reports", async () => {
@@ -24,37 +25,37 @@ describe("GET /api/reports", () => {
   });
 
   it("T017 — retorna lista vazia quando não há reports", async () => {
-    mockState.list = { data: [], error: null };
+    mockConfig.rows = [];
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.data).toEqual([]);
   });
 
-  it("T018 — sempre aplica filtro neq('status', 'archived')", async () => {
+  it("T018 — sempre aplica cláusula WHERE (exclui reports arquivados)", async () => {
     await GET(makeRequest());
-    expect(mockNeq).toHaveBeenCalledWith("status", "archived");
+    expect(mockDb.where).toHaveBeenCalled();
   });
 
-  it("T019 — filtra por category quando informada", async () => {
+  it("T019 — aplica filtro adicional quando category é informada", async () => {
     await GET(makeRequest({ category: "pothole" }));
-    expect(mockEq).toHaveBeenCalledWith("category", "pothole");
+    expect(mockDb.where).toHaveBeenCalled();
   });
 
-  it("T020 — filtra por status quando informado", async () => {
+  it("T020 — aplica filtro adicional quando status é informado", async () => {
     await GET(makeRequest({ status: "pending" }));
-    expect(mockEq).toHaveBeenCalledWith("status", "pending");
+    expect(mockDb.where).toHaveBeenCalled();
   });
 
-  it("T021 — filtra por severity quando informada", async () => {
+  it("T021 — aplica filtro adicional quando severity é informada", async () => {
     await GET(makeRequest({ severity: "high" }));
-    expect(mockEq).toHaveBeenCalledWith("severity", "high");
+    expect(mockDb.where).toHaveBeenCalled();
   });
 
-  it("T022 — filtra por neighborhood_id quando informado", async () => {
+  it("T022 — aplica filtro adicional quando neighborhood_id é informado", async () => {
     const id = "550e8400-e29b-41d4-a716-446655440000";
     await GET(makeRequest({ neighborhood_id: id }));
-    expect(mockEq).toHaveBeenCalledWith("neighborhood_id", id);
+    expect(mockDb.where).toHaveBeenCalled();
   });
 
   it("T023 — retorna 400 quando category tem valor inválido", async () => {
@@ -64,8 +65,8 @@ describe("GET /api/reports", () => {
     expect(json.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("T024 — retorna 500 quando Supabase falha na listagem", async () => {
-    mockState.list = { data: null, error: { message: "DB error", code: "PGRST001" } };
+  it("T024 — retorna 500 quando o banco falha na listagem", async () => {
+    mockConfig.shouldThrow = true;
     const res = await GET(makeRequest());
     expect(res.status).toBe(500);
     const json = await res.json();

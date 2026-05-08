@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createSupabaseAdminClient } from "@/lib/supabase";
+import { and, eq, ne } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { reports } from "@/lib/db/schema";
 
 function notFoundError() {
   return NextResponse.json(
@@ -21,24 +23,16 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("reports")
-    .select("*")
-    .eq("id", id)
-    .neq("status", "archived")
-    .single();
+  try {
+    const [row] = await db
+      .select()
+      .from(reports)
+      .where(and(eq(reports.id, id), ne(reports.status, "archived")))
+      .limit(1);
 
-  if (error) {
-    if (error.code === "PGRST116") {
-      return notFoundError();
-    }
+    if (!row) return notFoundError();
+    return NextResponse.json({ data: row });
+  } catch {
     return databaseError();
   }
-
-  if (!data) {
-    return notFoundError();
-  }
-
-  return NextResponse.json({ data });
 }
