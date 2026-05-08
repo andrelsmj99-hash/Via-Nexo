@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { and, desc, eq, SQL } from "drizzle-orm";
+import { and, count, desc, eq, SQL } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { reports } from "@/lib/db/schema";
@@ -48,6 +48,8 @@ export async function GET(request: Request) {
     status: searchParams.get("status") ?? undefined,
     severity: searchParams.get("severity") ?? undefined,
     neighborhood_id: searchParams.get("neighborhood_id") ?? undefined,
+    page: searchParams.get("page") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
   };
 
   let filters;
@@ -64,6 +66,8 @@ export async function GET(request: Request) {
     throw err;
   }
 
+  const offset = (filters.page - 1) * filters.limit;
+
   try {
     const conditions: SQL[] = [];
     if (filters.category) conditions.push(eq(reports.category, filters.category));
@@ -71,7 +75,14 @@ export async function GET(request: Request) {
     if (filters.severity) conditions.push(eq(reports.severity, filters.severity));
     if (filters.neighborhood_id) conditions.push(eq(reports.neighborhood_id, filters.neighborhood_id));
 
-    const query = db
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [countRow] = await db
+      .select({ total: count() })
+      .from(reports)
+      .where(whereClause);
+
+    const rows = await db
       .select({
         id: reports.id,
         title: reports.title,
@@ -85,13 +96,19 @@ export async function GET(request: Request) {
         updated_at: reports.updated_at,
       })
       .from(reports)
-      .orderBy(desc(reports.created_at));
+      .where(whereClause)
+      .orderBy(desc(reports.created_at))
+      .limit(filters.limit)
+      .offset(offset);
 
-    const rows = conditions.length > 0
-      ? await (query as any).where(and(...conditions))
-      : await query;
-
-    return NextResponse.json({ data: rows });
+    return NextResponse.json({
+      data: rows,
+      meta: {
+        page: filters.page,
+        limit: filters.limit,
+        total: Number(countRow?.total ?? 0),
+      },
+    });
   } catch {
     return databaseError();
   }

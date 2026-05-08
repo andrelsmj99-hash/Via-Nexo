@@ -72,4 +72,66 @@ describe("GET /api/reports", () => {
     const json = await res.json();
     expect(json.error.code).toBe("DATABASE_ERROR");
   });
+
+  // --- Grupo 3: Paginação e meta ---
+
+  it("T025 — resposta inclui meta com page, limit e total", async () => {
+    mockConfig.rowsSequence = [[{ total: 5 }], [buildReport(), buildReport()]];
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.meta).toBeDefined();
+    expect(json.meta.page).toBe(1);
+    expect(json.meta.limit).toBe(50);
+    expect(json.meta.total).toBe(5);
+  });
+
+  it("T026 — respeita parâmetro limit informado", async () => {
+    mockConfig.rowsSequence = [[{ total: 10 }], [buildReport()]];
+    const res = await GET(makeRequest({ limit: "10" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.meta.limit).toBe(10);
+    expect(mockDb.limit).toHaveBeenCalledWith(10);
+  });
+
+  it("T027 — respeita parâmetro page informado e calcula offset correto", async () => {
+    mockConfig.rowsSequence = [[{ total: 20 }], [buildReport()]];
+    const res = await GET(makeRequest({ page: "3", limit: "5" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.meta.page).toBe(3);
+    expect(mockDb.offset).toHaveBeenCalledWith(10);
+  });
+
+  it("T028 — retorna 400 quando limit excede 100", async () => {
+    const res = await GET(makeRequest({ limit: "200" }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("T029 — retorna 400 quando page é 0", async () => {
+    const res = await GET(makeRequest({ page: "0" }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  // --- Grupo 4: Privacidade de dados ---
+
+  it("T030 — lista não expõe user_id, email ou role do autor", async () => {
+    const summary = {
+      id: "r1", title: "Teste", category: "pothole", status: "pending",
+      severity: "high", latitude: -23.5, longitude: -46.6,
+      neighborhood_id: null, created_at: "2026-01-01", updated_at: "2026-01-01",
+    };
+    mockConfig.rowsSequence = [[{ total: 1 }], [summary]];
+    const res = await GET(makeRequest());
+    const json = await res.json();
+    const item = json.data[0];
+    expect(item).not.toHaveProperty("user_id");
+    expect(item).not.toHaveProperty("email");
+    expect(item).not.toHaveProperty("role");
+  });
 });

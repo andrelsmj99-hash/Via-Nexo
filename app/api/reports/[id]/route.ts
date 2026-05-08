@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { and, eq, ne } from "drizzle-orm";
+import { and, count, eq, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { reports } from "@/lib/db/schema";
+import { reports, report_images, report_confirmations } from "@/lib/db/schema";
 
 function notFoundError() {
   return NextResponse.json(
@@ -31,7 +31,25 @@ export async function GET(
       .limit(1);
 
     if (!row) return notFoundError();
-    return NextResponse.json({ data: row });
+
+    const images = await db
+      .select({ id: report_images.id, image_url: report_images.image_url })
+      .from(report_images)
+      .where(eq(report_images.report_id, id));
+
+    const [countRow] = await db
+      .select({ total: count() })
+      .from(report_confirmations)
+      .where(eq(report_confirmations.report_id, id));
+
+    return NextResponse.json({
+      data: {
+        ...row,
+        user_id: row.is_anonymous ? null : row.user_id,
+        images,
+        confirmations_count: Number(countRow?.total ?? 0),
+      },
+    });
   } catch {
     return databaseError();
   }

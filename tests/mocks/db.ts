@@ -10,7 +10,7 @@ export const mockConfig = {
 
 const chainable: Record<string, any> = {};
 
-["select", "from", "where", "orderBy", "limit", "insert", "values", "update", "set"].forEach((m) => {
+["select", "from", "where", "orderBy", "limit", "offset", "insert", "values", "update", "set"].forEach((m) => {
   chainable[m] = vi.fn().mockReturnValue(chainable);
 });
 

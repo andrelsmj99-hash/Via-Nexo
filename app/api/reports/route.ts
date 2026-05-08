@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { and, desc, eq, ne, SQL } from "drizzle-orm";
+import { and, count, desc, eq, ne, SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { reports } from "@/lib/db/schema";
 import { ReportInsertSchema, ReportListQuerySchema } from "@/lib/schemas/report.schema";
@@ -28,6 +28,8 @@ export async function GET(request: Request) {
     status: searchParams.get("status") ?? undefined,
     severity: searchParams.get("severity") ?? undefined,
     neighborhood_id: searchParams.get("neighborhood_id") ?? undefined,
+    page: searchParams.get("page") ?? undefined,
+    limit: searchParams.get("limit") ?? undefined,
   };
 
   let filters;
@@ -44,12 +46,19 @@ export async function GET(request: Request) {
     throw err;
   }
 
+  const offset = (filters.page - 1) * filters.limit;
+
   try {
     const conditions: SQL[] = [ne(reports.status, "archived")];
     if (filters.category) conditions.push(eq(reports.category, filters.category));
     if (filters.status) conditions.push(eq(reports.status, filters.status));
     if (filters.severity) conditions.push(eq(reports.severity, filters.severity));
     if (filters.neighborhood_id) conditions.push(eq(reports.neighborhood_id, filters.neighborhood_id));
+
+    const [countRow] = await db
+      .select({ total: count() })
+      .from(reports)
+      .where(and(...conditions));
 
     const rows = await db
       .select({
@@ -66,9 +75,18 @@ export async function GET(request: Request) {
       })
       .from(reports)
       .where(and(...conditions))
-      .orderBy(desc(reports.created_at));
+      .orderBy(desc(reports.created_at))
+      .limit(filters.limit)
+      .offset(offset);
 
-    return NextResponse.json({ data: rows });
+    return NextResponse.json({
+      data: rows,
+      meta: {
+        page: filters.page,
+        limit: filters.limit,
+        total: Number(countRow?.total ?? 0),
+      },
+    });
   } catch {
     return databaseError();
   }

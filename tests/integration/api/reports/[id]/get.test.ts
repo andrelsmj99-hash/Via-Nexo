@@ -52,4 +52,67 @@ describe("GET /api/reports/[id]", () => {
     const json = await res.json();
     expect(json.error.code).toBe("DATABASE_ERROR");
   });
+
+  // --- Grupo 2: Campos enriquecidos ---
+
+  it("T-E01 — resposta inclui campo images como array", async () => {
+    mockConfig.rowsSequence = [
+      [buildReport({ id: VALID_ID })],
+      [{ id: "img-1", image_url: "https://storage.example.com/img.jpg" }],
+      [{ total: 2 }],
+    ];
+    const res = await GET(...makeRequest());
+    const json = await res.json();
+    expect(json.data.images).toBeInstanceOf(Array);
+    expect(json.data.images).toHaveLength(1);
+    expect(json.data.images[0].image_url).toBeDefined();
+  });
+
+  it("T-E02 — resposta inclui confirmations_count como número", async () => {
+    mockConfig.rowsSequence = [
+      [buildReport({ id: VALID_ID })],
+      [],
+      [{ total: 7 }],
+    ];
+    const res = await GET(...makeRequest());
+    const json = await res.json();
+    expect(typeof json.data.confirmations_count).toBe("number");
+    expect(json.data.confirmations_count).toBe(7);
+  });
+
+  it("T-E03 — images é array vazio quando não há imagens vinculadas", async () => {
+    mockConfig.rowsSequence = [
+      [buildReport({ id: VALID_ID })],
+      [],
+      [{ total: 0 }],
+    ];
+    const res = await GET(...makeRequest());
+    const json = await res.json();
+    expect(json.data.images).toEqual([]);
+    expect(json.data.confirmations_count).toBe(0);
+  });
+
+  // --- Grupo 3: Privacidade ---
+
+  it("T-D03 — user_id é null quando is_anonymous é true", async () => {
+    mockConfig.rowsSequence = [
+      [buildReport({ id: VALID_ID, is_anonymous: true, user_id: "secret-user-id" })],
+      [],
+      [{ total: 0 }],
+    ];
+    const res = await GET(...makeRequest());
+    const json = await res.json();
+    expect(json.data.user_id).toBeNull();
+  });
+
+  it("T-D04 — user_id é mantido quando is_anonymous é false", async () => {
+    mockConfig.rowsSequence = [
+      [buildReport({ id: VALID_ID, is_anonymous: false, user_id: "public-user-id" })],
+      [],
+      [{ total: 0 }],
+    ];
+    const res = await GET(...makeRequest());
+    const json = await res.json();
+    expect(json.data.user_id).toBe("public-user-id");
+  });
 });

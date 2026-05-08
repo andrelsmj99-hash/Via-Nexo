@@ -49,6 +49,8 @@ export const ReportListQuerySchema = z.object({
   status: z.enum(REPORT_STATUSES).optional(),
   severity: z.enum(REPORT_SEVERITIES).optional(),
   neighborhood_id: z.string().uuid("neighborhood_id deve ser um UUID válido").optional(),
+  page: z.coerce.number().int().min(1, "page deve ser >= 1").default(1),
+  limit: z.coerce.number().int().min(1, "limit deve ser >= 1").max(100, "limit deve ser <= 100").default(50),
 });
 
 export type ReportListQuery = z.infer<typeof ReportListQuerySchema>;

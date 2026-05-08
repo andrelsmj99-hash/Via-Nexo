@@ -94,7 +94,38 @@ describe("GET /api/admin/reports", () => {
     expect(json.error.code).toBe("VALIDATION_ERROR");
   });
 
-  // --- Grupo 3: Erros de infraestrutura ---
+  // --- Grupo 3: Paginação e meta ---
+
+  it("T066 — resposta inclui meta com page, limit e total", async () => {
+    mockConfig.rowsSequence = [
+      [{ total: 8 }],
+      [buildReport(), buildReport({ status: "archived" })],
+    ];
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.meta).toBeDefined();
+    expect(json.meta.page).toBe(1);
+    expect(json.meta.limit).toBe(50);
+    expect(json.meta.total).toBe(8);
+  });
+
+  it("T067 — respeita parâmetro limit informado", async () => {
+    mockConfig.rowsSequence = [[{ total: 20 }], [buildReport()]];
+    const res = await GET(makeRequest({ limit: "5" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.meta.limit).toBe(5);
+  });
+
+  it("T068 — retorna 400 quando limit excede 100", async () => {
+    const res = await GET(makeRequest({ limit: "200" }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  // --- Grupo 4: Erros de infraestrutura ---
 
   it("T065 — retorna 500 quando o banco falha", async () => {
     mockConfig.shouldThrow = true;
