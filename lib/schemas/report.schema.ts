@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { REPORT_CATEGORIES, REPORT_SEVERITIES } from "@/lib/constants";
+import { REPORT_CATEGORIES, REPORT_SEVERITIES, REPORT_STATUSES } from "@/lib/constants";
 
 export const ReportInsertSchema = z.object({
   title: z
@@ -43,3 +43,12 @@ export const StatusUpdateSchema = z.object({
 });
 
 export type StatusUpdateInput = z.infer<typeof StatusUpdateSchema>;
+
+export const ReportListQuerySchema = z.object({
+  category: z.enum(REPORT_CATEGORIES).optional(),
+  status: z.enum(REPORT_STATUSES).optional(),
+  severity: z.enum(REPORT_SEVERITIES).optional(),
+  neighborhood_id: z.string().uuid("neighborhood_id deve ser um UUID válido").optional(),
+});
+
+export type ReportListQuery = z.infer<typeof ReportListQuerySchema>;
