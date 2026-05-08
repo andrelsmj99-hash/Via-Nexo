@@ -82,6 +82,6 @@ export const moderation_logs = pgTable("moderation_logs", {
   report_id: uuid("report_id").notNull().references(() => reports.id, { onDelete: "cascade" }),
   moderator_id: uuid("moderator_id").notNull().references(() => users.id),
   action: moderationActionEnum("action").notNull(),
-  note: text("note"),
+  notes: text("notes"),
   created_at: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
 });
