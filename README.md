@@ -52,8 +52,55 @@ Antes de alterar o código, atualizar a spec correspondente. O código deve refl
 
 Nenhuma inconsistência remanescente identificada nesta revisão de harmonização controlada.
 
-## Decisão Pendente
+## Desenvolvimento Local
 
-A sincronização entre `auth.users` e `public.users` não será implementada na Fase 1.
-A estratégia oficial será definida em fase posterior, junto com autenticação e controle administrativo.
-Até lá, a modelagem deve apenas manter compatibilidade estrutural com `auth.users`, sem triggers automáticas.
+### Pré-requisitos
+
+- Node.js 20+
+- PostgreSQL 15+
+
+### Setup
+
+```bash
+# 1. Clone e instale as dependências
+git clone <repo-url>
+cd Via-Nexo
+npm install
+
+# 2. Configure as variáveis de ambiente
+cp .env.example .env.local
+# Edite .env.local com sua DATABASE_URL, NEXTAUTH_SECRET e NEXTAUTH_URL
+
+# 3. Aplique as migrations no banco
+psql -U <user> -d <database> -f supabase/migrations/20260328220000_via_nexo_phase_1_foundation.sql
+psql -U <user> -d <database> -f supabase/migrations/20260329000000_standalone_postgres.sql
+
+# 4. Crie um usuário administrador inicial (substitua os valores)
+psql -U <user> -d <database> -c "
+INSERT INTO public.users (name, email, role, password_hash)
+VALUES ('Admin', 'admin@example.com', 'admin', '\$2b\$10\$HASH_GERADO_COM_BCRYPT');
+"
+# Para gerar o hash: node -e \"const b=require('bcryptjs');b.hash('suasenha',10).then(console.log)\"
+
+# 5. Inicie o servidor de desenvolvimento
+npm run dev
+```
+
+A aplicação estará disponível em `http://localhost:3000`.  
+O painel administrativo fica em `/admin` — faça login em `/login` com as credenciais criadas acima.
+
+### Testes
+
+```bash
+npm test               # executa todos os testes
+npm run test:coverage  # executa com relatório de cobertura
+npx tsc --noEmit       # verifica tipos TypeScript
+```
+
+---
+
+## Decisão Técnica: Autenticação
+
+O projeto usa **NextAuth v5 (Auth.js)** com `CredentialsProvider` contra a tabela `public.users`.
+A estratégia de Supabase Auth foi descartada na migração para PostgreSQL auto-hospedado.
+Senhas são armazenadas como hashes bcrypt no campo `password_hash`.
